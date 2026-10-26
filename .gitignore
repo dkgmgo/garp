@@ -1,0 +1,19 @@
+# Python related
+__pycache__/
+*.py[cod]
+*.egg-info/
+.*venv/
+.pytest_cache/
+
+# Build related
+build/
+build-*/
+dist/
+_skbuild/
+*.so
+*.pyd
+
+# IDE related
+.vscode/
+.idea/
+.DS_Store
