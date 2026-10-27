@@ -1,5 +1,4 @@
 import logging
-import sys
 
 
 def setup_logging(verbose: int = 0, quiet: bool = False) -> None:
@@ -7,5 +6,5 @@ def setup_logging(verbose: int = 0, quiet: bool = False) -> None:
     logging.basicConfig(
         level=level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        #stream=sys.stderr
+        force=True,  # reconfigure on repeated main() calls (tests)
     )

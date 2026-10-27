@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "garp"
 version = "0.1.0"
 description = "Graph data preprocessing tool"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ["networkx>=3.0"]
 
 [project.optional-dependencies]
@@ -14,7 +14,11 @@ fast = ["pandas", "pyarrow"]
 dev = ["pytest"]
 
 [project.scripts]
-tool = "garp.cli:main"
+garp = "garp.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
