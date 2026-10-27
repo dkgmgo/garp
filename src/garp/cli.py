@@ -22,21 +22,46 @@ def discover() -> dict[str, Path]:
     }
 
 
-def summary(path: Path):
+def read_meta(path: Path) -> tuple[str, str]:
+    """(alias, one-line summary) read from the tool source, without importing it."""
     try:
-        doc = ast.get_docstring(ast.parse(path.read_text(encoding="utf-8")))
+        tree = ast.parse(path.read_text(encoding="utf-8"))
     except SyntaxError as e:
-        return f"<syntax error: {e.msg}, line {e.lineno}>"
+        return "", f"<syntax error: {e.msg}, line {e.lineno}>"
     except UnicodeDecodeError:
-        return "<not valid utf-8>"
-    return doc.strip().splitlines()[0] if doc else ""
+        return "", "<not valid utf-8>"
+    alias = ""
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "ALIAS" for t in node.targets)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            alias = node.value.value.strip().replace("_", "-")
+    doc = ast.get_docstring(tree)
+    return alias, doc.strip().splitlines()[0] if doc else ""
 
 
-def print_tool_list(tools: dict[str, Path]) -> None:
-    width = max((len(n) for n in tools), default=0)
+def aliases(tools: dict[str, Path], metas: dict[str, tuple[str, str]]) -> dict[str, str]:
+    """alias -> tool name. A real tool name always wins over an alias; first alias wins on duplicates."""
+    result = {}
+    for name, (alias, _) in metas.items():
+        if not alias or alias == name:
+            continue
+        if alias in tools or alias in result:
+            print(f"warning: alias '{alias}' of tool '{name}' is already taken, ignored", file=sys.stderr)
+            continue
+        result[alias] = name
+    return result
+
+
+def print_tool_list(metas: dict[str, tuple[str, str]], alias_of: dict[str, str]) -> None:
+    labels = {name: name + (f" ({alias})" if alias_of.get(alias) == name else "") for name, (alias, _) in metas.items()}
+    width = max((len(label) for label in labels.values()), default=0)
     print(f"garp {__version__}\n\nusage: garp <tool_name> [params]   (garp <tool_name> -h for details)\n\ntools:")
-    for name, path in tools.items():
-        print(f"  {name:<{width}}  {summary(path)}")
+    for i, (name, (_, doc)) in enumerate(metas.items()):
+        print(f"  {i+1}) {labels[name]:<{width}}  {doc}")
 
 
 def load(name: str):
@@ -50,17 +75,20 @@ def load(name: str):
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     tools = discover()
+    metas = {name: read_meta(path) for name, path in tools.items()}
+    alias_of = aliases(tools, metas)
 
     if not argv or argv[0] in ("-h", "--help", "list"):
-        print_tool_list(tools)
+        print_tool_list(metas, alias_of)
         return 0
     if argv[0] in ("-V", "--version"):
         print(__version__)
         return 0
 
     name = argv[0].replace("_", "-")
+    name = alias_of.get(name, name)
     if name not in tools:
-        hint = difflib.get_close_matches(name, tools, n=1)
+        hint = difflib.get_close_matches(name, [*tools, *alias_of], n=1)
         msg = f"unknown tool '{argv[0]}'" + (f" — did you mean '{hint[0]}'?" if hint else "")
         print(msg, file=sys.stderr)
         return 2

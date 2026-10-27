@@ -40,15 +40,24 @@ def add_output(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def iter_jobs(args: argparse.Namespace, rename: Callable[[str], str] | None = None) -> Iterator[tuple[Path, Path | None]]:
+def iter_jobs(args: argparse.Namespace, rename: Callable[[str], str] | None = None, many: bool = False) -> Iterator[tuple[Path, Path | None]]:
     """Yield (input_file, output_file) pairs. output_file is None for stdout.
 
     rename(input_name) -> output_name applies whenever the output name is
     derived from the input name (output is a directory). An explicit
     `-o FILE` is always kept as typed.
+
+    many=True is for tools writing several files per input: -o must be a
+    directory (created if missing), and output_file is a base path inside it,
+    never None. Write next to it with names derived from it, e.g.
+    `dst.parent / f"{part}_{dst.name}"`.
     """
     src, dst = args.input, args.output
     name = rename or (lambda n: n)
+    if many:
+        if dst is None or (dst.exists() and not dst.is_dir()):
+            raise SystemExit("-o/--output must be a directory (several output files per input)")
+        dst.mkdir(parents=True, exist_ok=True)
     if src.is_file():
         if dst is not None and dst.is_dir():
             dst = dst / name(src.name)
@@ -68,6 +77,8 @@ def iter_jobs(args: argparse.Namespace, rename: Callable[[str], str] | None = No
     dst.mkdir(parents=True, exist_ok=True)
     for path in files:
         yield path, dst / name(path.name)
+
+#TODO for later: another helper that does many to one and another one for many folders
 
 
 def open_text(path: Path | None, mode: str = "r") -> contextlib.AbstractContextManager[IO[str]]:

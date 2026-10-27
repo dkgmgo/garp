@@ -13,6 +13,10 @@ import logging
 
 from garp.common.io import add_input, add_output, iter_jobs, iter_lines, open_text
 
+# Optional second name: `garp my-nickname` then runs this tool too.
+# Must be a plain string literal (read without importing the tool).
+# ALIAS = "my-nickname"
+
 log = logging.getLogger(__name__)
 
 

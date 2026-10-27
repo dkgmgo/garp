@@ -69,3 +69,36 @@ def test_template_directory_mirrors_with_glob(tools_dir, tmp_path):
     assert (out / "a.edges").read_text() == "1 2\n"
     with gzip.open(out / "b.edges.gz", "rt") as f:
         assert f.read() == "3 4\n"
+
+
+def add_tool(tools_dir, name, alias=None):
+    alias_line = f'ALIAS = "{alias}"\n' if alias else ""
+    (tools_dir / f"{name}.py").write_text(
+        f'"""Tool {name}."""\n{alias_line}def add_arguments(p): pass\ndef run(a): print("{name} ran")\n'
+    )
+
+
+def test_alias_runs_tool_and_is_listed(tools_dir, capsys):
+    add_tool(tools_dir, "long_name", alias="nick_name")
+    assert cli.main(["nick-name"]) == 0
+    assert capsys.readouterr().out == "long_name ran\n"
+    cli.main([])
+    assert "long-name (nick-name)" in capsys.readouterr().out
+
+
+def test_alias_cannot_shadow_tool_name(tools_dir, capsys):
+    add_tool(tools_dir, "first", alias="second")
+    add_tool(tools_dir, "second")
+    add_tool(tools_dir, "third", alias="second")
+    assert cli.main(["second"]) == 0
+    assert capsys.readouterr().out == "second ran\n"
+    assert cli.main([]) == 0
+    captured = capsys.readouterr()
+    assert "first (second)" not in captured.out
+    assert captured.err.count("already taken") == 2
+
+
+def test_unknown_tool_suggests_alias(tools_dir, capsys):
+    add_tool(tools_dir, "long_name", alias="bara-bara")
+    assert cli.main(["bara-barra"]) == 2
+    assert "did you mean 'bara-bara'" in capsys.readouterr().err

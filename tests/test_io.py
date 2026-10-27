@@ -99,3 +99,31 @@ def test_rename_ignored_for_explicit_file_and_stdout(tmp_path):
     target = tmp_path / "result.txt"
     assert list(iter_jobs(parse(src, "-o", target), rename=tag)) == [(src, target)]
     assert list(iter_jobs(parse(src), rename=tag)) == [(src, None)]
+
+
+def test_many_creates_output_dir_for_file_input(tmp_path):
+    src = tmp_path / "input.txt"
+    src.write_text("x\n")
+    out = tmp_path / "new" / "out"
+    assert list(iter_jobs(parse(src, "-o", out), many=True)) == [(src, out / "input.txt")]
+    assert out.is_dir()
+
+
+def test_many_applies_rename(tmp_path):
+    src = tmp_path / "input.txt"
+    src.write_text("x\n")
+    out = tmp_path / "out"
+    assert list(iter_jobs(parse(src, "-o", out), rename=tag, many=True)) == [(src, out / "input_processed.txt")]
+
+
+@pytest.mark.parametrize("with_output", [False, True])
+def test_many_rejects_stdout_and_file_output(tmp_path, with_output):
+    src = tmp_path / "input.txt"
+    src.write_text("x\n")
+    argv = [src]
+    if with_output:
+        target = tmp_path / "result.txt"
+        target.write_text("")
+        argv += ["-o", target]
+    with pytest.raises(SystemExit, match="must be a directory"):
+        list(iter_jobs(parse(*argv), many=True))
