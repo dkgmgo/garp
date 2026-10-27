@@ -91,6 +91,16 @@ def open_text(path: Path | None, mode: str = "r") -> contextlib.AbstractContextM
     return opener(path, mode.replace("t", "") + "t", encoding="utf-8")
 
 
+def open_binary(path: Path | None, mode: str = "r") -> contextlib.AbstractContextManager[IO[bytes]]:
+    """Same as open_text, in bytes (for libraries writing bytes, e.g. networkx.write_graphml)."""
+    if path is None:
+        return contextlib.nullcontext((sys.stdout if "w" in mode or "a" in mode else sys.stdin).buffer)
+    if "w" in mode or "a" in mode:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    opener = OPENERS.get(path.suffix, open)
+    return opener(path, mode.replace("b", "") + "b")
+
+
 def iter_lines(path: Path | None) -> Iterator[str]:
     """Yield lines without their trailing newline."""
     with open_text(path) as f:
