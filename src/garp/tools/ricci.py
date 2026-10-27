@@ -23,7 +23,7 @@ import logging
 
 from garp.common.io import OPENERS, add_input, add_output, iter_jobs, open_binary
 
-ALIAS = "gomu-gomu"  # Like Luffy's rubber, the flow stretches and shrinks edges' distances
+ALIAS = "gomu"  # Like Luffy's rubber, the flow stretches and shrinks edges' distances
 
 log = logging.getLogger(__name__)
 

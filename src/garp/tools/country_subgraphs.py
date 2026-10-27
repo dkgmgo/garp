@@ -26,7 +26,7 @@ from collections import defaultdict
 
 from garp.common.io import add_input, add_output, iter_jobs, open_text
 
-ALIAS = "bara-bara"  # Buggy's chop-chop fruit cut the world in pieces
+ALIAS = "bara"  # Buggy's chop-chop fruit cut the world in pieces
 
 log = logging.getLogger(__name__)
 
