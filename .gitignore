@@ -17,3 +17,6 @@ _skbuild/
 .vscode/
 .idea/
 .DS_Store
+
+# Data related
+data/

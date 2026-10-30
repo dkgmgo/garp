@@ -37,7 +37,7 @@ def test_bad_surgery_eps_is_argparse_error(graph):
 def test_curvature_matches_fricci(graph, tmp_path):
     fricci = pytest.importorskip("fricci")
     out = tmp_path / "out.graphml.xz"
-    assert cli.main(["gomu-gomu", str(graph), "-o", str(out)]) == 0
+    assert cli.main(["gomu", str(graph), "-o", str(out)]) == 0
     import lzma
     with lzma.open(out) as f:
         H = nx.read_graphml(f)
@@ -103,3 +103,13 @@ def test_output_attribute_as_weight_rejected_early(graph, flow, monkeypatch):
     monkeypatch.setattr(fricci, "discrete_ricci_flow", lambda *a, **k: pytest.fail("flow ran"))
     with pytest.raises(SystemExit, match="--weight curv: fricci writes this attribute"):
         cli.main(["ricci", str(graph), "--weight", "curv", *flow])
+
+
+def test_flow_warns_on_disconnected_graph(tmp_path, capsys):
+    pytest.importorskip("fricci")
+    path = tmp_path / "two.graphml"
+    G = nx.disjoint_union(nx.karate_club_graph(), nx.path_graph(3))
+    G.graph.clear()
+    nx.write_graphml(G, path)
+    assert cli.main(["ricci", str(path), "-o", str(tmp_path / "out.graphml"), "--flow", "2"]) == 0
+    assert "disconnected graph, 2 components (nodes: 34, 3)" in capsys.readouterr().err

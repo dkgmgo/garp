@@ -82,6 +82,18 @@ def to_simple_undirected(G, nx, src):
     return G
 
 
+def warn_if_disconnected(G, nx, src, shown=5):
+    # The flow rescales distances over the whole graph: small components shrink to nothing.
+    if G.number_of_nodes() == 0 or nx.is_connected(G):
+        return
+    sizes = sorted(map(len, nx.connected_components(G)), reverse=True)
+    more = f", ... ({len(sizes) - shown} more)" if len(sizes) > shown else ""
+    log.warning(
+        "%s: disconnected graph, %d components (nodes: %s%s); the smaller ones may be contracted by surgery",
+        src, len(sizes), ", ".join(map(str, sizes[:shown])), more,
+    )
+
+
 def run(args):
     try:
         import fricci
@@ -117,6 +129,7 @@ def run(args):
                 nx.write_graphml(H, out)
             continue
 
+        warn_if_disconnected(G, nx, src)
         # The flow runs on CSRGraph; the networkx graph is built only for the steps written.
         g = fricci.CSRGraph.from_networkx(G, weight=args.weight)
         callback = None
