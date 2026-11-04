@@ -15,6 +15,7 @@ example:
   garp ricci world.graphml -o processed_world.graphml --flow 40 --model LLY
   garp ricci graphs/ --glob '*.graphml' -o flowed/ --flow 20 --model GRC --core 2 --threads 8
   garp ricci world.graphml -o flowed/ --flow 40 --every 10
+  garp ricci world.graphml -o flowed/ --flow 200 --tol 0.02 --ot-max-iter 1000000
 """
 from __future__ import annotations
 
@@ -49,6 +50,8 @@ def add_arguments(parser):
     parser.add_argument("--model", choices=("LLY", "GRC"), default="LLY", help="curvature and flow preset Lin-Lu-Yau vs GraphRicciCurvature (default: %(default)s)")
     parser.add_argument("--weight", default="weight", help="edge attribute with the input weights, 1 when missing (default: %(default)s)")
     parser.add_argument("--threads", type=int, help="OpenMP threads (default: all cores)")
+    parser.add_argument("--ot-max-iter", type=int, metavar="N", help="optimal transport iteration limit per edge (default: fricci's, 1e8);",
+    )
     flow = parser.add_argument_group("flow options (with --flow)")
     flow.add_argument("--core", type=int, metavar="K", help="keep only the K-core before the flow")
     flow.add_argument(
@@ -114,7 +117,11 @@ def run(args):
         raise SystemExit("--flow needs at least 1 step")
     elif args.every is not None and args.every < 1:
         raise SystemExit("--every needs at least 1 step")
+    if args.ot_max_iter is not None and args.ot_max_iter < 1:
+        raise SystemExit("--ot-max-iter needs at least 1 iteration")
     overrides = {"n_threads": args.threads} if args.threads else {}
+    if args.ot_max_iter is not None:
+        overrides["ot_max_iter"] = args.ot_max_iter
 
     for src, dst in iter_jobs(args):
         with open_binary(src) as f:

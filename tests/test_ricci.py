@@ -113,3 +113,19 @@ def test_flow_warns_on_disconnected_graph(tmp_path, capsys):
     nx.write_graphml(G, path)
     assert cli.main(["ricci", str(path), "-o", str(tmp_path / "out.graphml"), "--flow", "2"]) == 0
     assert "disconnected graph, 2 components (nodes: 34, 3)" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("name, flow", [("ollivier_ricci_curvature", []), ("discrete_ricci_flow", ["--flow", "1"])])
+def test_ot_max_iter_reaches_fricci(graph, tmp_path, monkeypatch, name, flow):
+    fricci = pytest.importorskip("fricci")
+    seen = []
+    real = getattr(fricci, name)
+    monkeypatch.setattr(fricci, name, lambda *a, **k: seen.append(k.get("ot_max_iter")) or real(*a, **k))
+    assert cli.main(["ricci", str(graph), "-o", str(tmp_path / "out.graphml"), "--ot-max-iter", "1000000", *flow]) == 0
+    assert seen == [1000000]
+
+
+def test_ot_max_iter_must_be_positive(graph):
+    pytest.importorskip("fricci")
+    with pytest.raises(SystemExit, match="--ot-max-iter needs at least 1"):
+        cli.main(["ricci", str(graph), "--ot-max-iter", "0"])
