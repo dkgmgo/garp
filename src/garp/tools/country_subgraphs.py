@@ -1,8 +1,7 @@
 """Split a world AS-level BGP graph (GraphML) into one subgraph per country.
 
-A country's subgraph keeps every edge with at least one endpoint in that
-country, plus both endpoints. Foreign ASes touching a cross-border edge are
-therefore kept; ASes with no edges are dropped.
+A country's subgraph keeps all its ASes, even isolated, and the edges with both endpoints in that country.
+With --cross-border it also keeps the edges going outside, and the foreign ASes they reach.
 
 Output goes to a directory, one file per (input, country). The name is the
 input name with "processed" replaced by the country code, or prefixed with
@@ -17,6 +16,7 @@ example:
   garp country-subgraphs world.graphml -o countries/
   garp country-subgraphs Archive3/ --glob 'processed_*.graphml' -o All_Countries/
   garp country-subgraphs world.graphml.gz -o countries/ --countries FR DE US
+  garp country-subgraphs world.graphml -o countries/ --cross-border
 """
 from __future__ import annotations
 
@@ -49,6 +49,9 @@ def add_arguments(parser):
     )
     parser.add_argument(
         "--case-insensitive", action="store_true", help="treat 'fr' and 'FR' as the same country"
+    )
+    parser.add_argument(
+        "--cross-border", action="store_true", help="also keep links to other countries, and the foreign nodes they reach"
     )
     parser.add_argument("--no-renumber", action="store_true", help="keep original node ids")
 
@@ -135,21 +138,30 @@ def run(args):
         position = {n.get("id"): i for i, n in enumerate(nodes)}
         country_of = {n.get("id"): norm(node_value(n, key_id)) for n in nodes}
 
-        # An edge belongs to the country of each endpoint (1 or 2 countries).
+        # An edge belongs to the country of each endpoint (1 or 2 countries);
+        # one between 2 countries is dropped unless --cross-border.
         edges_of = defaultdict(list)
+        nodes_of = defaultdict(set)
         for edge in graph.iter(qn("edge")):
-            for c in {country_of.get(edge.get("source")), country_of.get(edge.get("target"))}:
+            countries = {country_of.get(edge.get("source")), country_of.get(edge.get("target"))}
+            if len(countries) > 1 and not args.cross_border:
+                continue
+            for c in countries:
                 if c and (wanted is None or c in wanted):
                     edges_of[c].append(edge)
+                    nodes_of[c].update((edge.get("source"), edge.get("target")))
+        for n, c in country_of.items():  # the country's own nodes, even isolated
+            if c and (wanted is None or c in wanted):
+                nodes_of[c].add(n)
 
         if wanted:
-            for c in sorted(wanted - edges_of.keys()):
-                log.warning("%s: no edges for country '%s', nothing written", src, c)
-        log.info("%s: %d nodes, %d countries to write", src, len(nodes), len(edges_of))
+            for c in sorted(wanted - nodes_of.keys()):
+                log.warning("%s: no nodes kept for country '%s', nothing written", src, c)
+        log.info("%s: %d nodes, %d countries to write", src, len(nodes), len(nodes_of))
 
-        for country in sorted(edges_of):
+        for country in sorted(nodes_of):
             edges = edges_of[country]
-            kept = {e.get("source") for e in edges} | {e.get("target") for e in edges}
+            kept = nodes_of[country]
             sub_nodes = [nodes[i] for i in sorted(position[n] for n in kept)]
             n_local = sum(1 for n in kept if country_of[n] == country)
 
